@@ -2,58 +2,68 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#include "uart.h"
+
+#define AXS101_UART_BASE	0xF0000000U
+#define AXS101_UART_BAUDRATE	115200
+#define AXS101_REF_CLOCK	50000000
+#define MAX_DEBUG_MSG_FPGA	128
+
 #include "dw_uart_reg.h"
+
+#include "arc.h"
+
+spinlock_t uart_lock;
 
 void dw_uart_initDevice(DW_UART_STRUCT_PTR uartRegs, uint32_t ip_clk, int baudrate) 
 {
-    uartRegs->MCR.DATA32 = 0;
-    uartRegs->IIR.DATA32 = 0x07;
-   uartRegs->LCR.DATA32  = 0x83;
-   uartRegs->DATA.DATA32 = (ip_clk / (16*baudrate));  //DLL div = CPU_clock / 16 * baudrate. 
-   uartRegs->IER.DATA32  = 0x00;                      //DLH
-   uartRegs->LCR.DATA32  = 0x03;
-    uartRegs->IER.DATA32 = 0x01;
-}
+	unsigned int divisor = ip_clk / (16*baudrate);
 
-#define AXS101_UART_BASE 0xF0000000U
-#define AXS101_UART_BAUDRATE                                (115200)
-#define AXS101_REF_CLOCK                                    (50000000)
-#define MAX_DEBUG_MSG_FPGA	            (128)
+	spinlock_acquire(&uart_lock);
+
+	uartRegs->LCR.DATA32 = 0x3;	// 0xc
+	uartRegs->IER.DATA32 = uartRegs->IER.DATA32 & DW_UART_IER_UUE; /* 0x4: no interrupt */
+	uartRegs->IIR.DATA32 = 0;	/* 0x8: Intends FCR: no fifo */
+	uartRegs->MCR.DATA32 = 0x3;	/* 0x10: DTR + RTS */
+
+	uartRegs->LCR.DATA32 = 0x3 | DW_UART_LCR_DLAB;
+	uartRegs->DATA.DATA32 = divisor & 0xff;		// DLL
+	uartRegs->IER.DATA32 = (divisor >> 8) & 0xff;	// DLM
+	uartRegs->LCR.DATA32 = 0x3 & ~DW_UART_LCR_DLAB;
+
+	spinlock_release(&uart_lock);
+}
 
 
 void uart_open(void)
 {
 	DW_UART_STRUCT_PTR   uart  = (DW_UART_STRUCT_PTR)  (AXS101_UART_BASE);
+
         dw_uart_initDevice(uart, AXS101_REF_CLOCK, AXS101_UART_BAUDRATE);
 
+#if 0
+	uart_put_char('@');
+	uart_print_s("hello\n");
+#endif
 }
 
 void dw_uart_print(DW_UART_STRUCT_PTR uartRegs, const char * pBuf)
 {
 	unsigned int i = MAX_DEBUG_MSG_FPGA;
+	unsigned char byte = *pBuf++;
 
-   unsigned char byte = *pBuf++;
-   while(byte && i--)
-   {
-      // wait when busy
-      while((uartRegs->USR.DATA32 & DW_UART_USR_BUSY))
-      {;}
-            
-      //if fifo stat is true
-      if ((uartRegs->CPR & DW_UART_PARAM_FIFO_STAT) == DW_UART_PARAM_FIFO_STAT)
-      {
-         while( !(uartRegs->USR.DATA32 & DW_UART_USR_TFNF))
-         {;}      
-      }
-         
-      // transmitt data byte
-      uartRegs->DATA.DATA32 = byte;
-      
-      byte = *pBuf++;
+	spinlock_acquire(&uart_lock);
 
-      //use sync(), due to multiple outstanding transactions      
-      //_sync();
-   }
+	while(byte && i--)
+	{
+		uartRegs->DATA.DATA32 = byte;
+		while((uartRegs->LSR.DATA32 & BOTH_EMPTY) != BOTH_EMPTY);
+
+		byte = *pBuf++;
+	}
+
+	spinlock_release(&uart_lock);
+
 }
 
 void uart_print_s(const char *str)

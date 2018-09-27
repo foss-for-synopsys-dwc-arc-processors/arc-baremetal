@@ -1,4 +1,5 @@
 #include "arc.h"
+#include "uart.h"
 
 /*********************************************************************
  * Core Intc setup
@@ -44,6 +45,8 @@ void arc_core_intc_init(void)
 
 void arc_cpu_init(void)
 {
+        char *nm[] = { "cpu0", "cpu1", "cpu2", "cpu3" };
+
 	extern char _vec_tbl[];
 	_sr((unsigned int)_vec_tbl, AUX_IVT_BASE);
 	
@@ -58,6 +61,8 @@ void arc_cpu_init(void)
 
 	_sr(IRQ_IPI, AUX_IRQ_SEL);
         _sr(INTC_DEF_PRIO, AUX_IRQ_PRIO);
+
+	uart_print_s(nm[smp_processor_id()]);
 }
 
 static void (*tmr_callbk[4])(int arg);

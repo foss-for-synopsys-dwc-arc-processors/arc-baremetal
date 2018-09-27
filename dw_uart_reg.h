@@ -18,6 +18,7 @@
 #define DW_UART_IER_XMIT_EMPTY                   (0x02)
 #define DW_UART_IER_LINE_STATUS                  (0x04)
 #define DW_UART_IER_MDM_STATUS                   (0x08)
+#define DW_UART_IER_UUE		                 (0x40)	/* UART Unit Enable */
 #define DW_UART_IER_PTIME                        (0x80)
 
 /* IIR */
@@ -84,9 +85,10 @@
 #define DW_UART_LSR_PARITYERR                    (0x04)
 #define DW_UART_LSR_FRAMEERR                     (0x08)
 #define DW_UART_LSR_BREAKRCVD                    (0x10)
-#define DW_UART_LSR_TXD_EMPTY                    (0x20)
-#define DW_UART_LSR_TX_STATUS                    (0x40)
+#define DW_UART_LSR_THRE                         (0x20)	/* Transmit-hold-register empty */
+#define DW_UART_LSR_TEMT                         (0x40) /* TX_STATUS: Transmitter empty */
 #define DW_UART_LSR_RX_FIFOERR                   (0x80)
+#define BOTH_EMPTY		(DW_UART_LSR_TEMT | DW_UART_LSR_THRE)
 
 /* MSR */
 #define DW_UART_MSR_DCTS                         (0x01)
@@ -165,8 +167,8 @@ typedef union reserved_union
 typedef volatile struct dw_uart_reg
 {
    REG_UNION DATA;                  /* data in/out and DLL */
-   REG_UNION IER;                   /* Interrupt enable register and DLH */
-   REG_UNION IIR;                   /* Interrupt Id register */
+   REG_UNION IER;                   /* Interrupt enable register and DLM */
+   REG_UNION IIR;                   /* Interrupt Id register */   /* Also FCR Fifo Control Reg */
    REG_UNION LCR;                   /* Line control Register */
    REG_UNION MCR;                   /* Modem control register */
    REG_UNION LSR;                   /* Line Status Register */

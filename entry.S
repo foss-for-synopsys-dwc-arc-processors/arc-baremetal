@@ -68,11 +68,12 @@ ARC_ENTRY _stext
 	brne r0, 0, .Lsecondary
 
 	mov  sp, STACKCPUS + 8192
-	bl   arc_cpu_init
 
 #ifndef NO_UART
         bl  uart_open
 #endif
+
+	bl   arc_cpu_init
 
 	b   tx_primary_core_entry
 

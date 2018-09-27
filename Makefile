@@ -13,13 +13,12 @@ LDFLAGS  = -T baremetal.lds -static -nostartfiles
 
 OBJS	 = entry.o arc.o test.o
 
-ifndef NO_UART
-  ifeq ("$(origin DW_UART)", "command line")
-	OBJS	+= dw_uart.o
-  else
+  ifeq ("$(origin ARC_UART)", "command line")
 	OBJS	+= arc_uart.o
+  else
+	OBJS	+= dw_uart.o
   endif
-endif
+
 
 %.o:	%.S arc.h
 	$(CC) $(AFLAGS) -c -o $@ $<
